@@ -1,0 +1,11 @@
+#!/bin/bash
+set -e
+
+echo "-------------------------------------------------"
+echo "oom-watcher installed."
+echo "Config: /etc/oom-watcher/config.yaml"
+echo "Autostart desktop entry: /etc/xdg/autostart/oom-watcher.desktop"
+echo "Log out and back in if your desktop session does not pick it up immediately."
+echo "-------------------------------------------------"
+
+exit 0

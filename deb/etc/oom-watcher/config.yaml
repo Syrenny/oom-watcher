@@ -1,0 +1,4 @@
+memory:
+  max_used_percent: 85
+  poll_interval: 3s
+  blink_interval: 500ms

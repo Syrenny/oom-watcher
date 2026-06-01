@@ -1,0 +1,8 @@
+Package: oom-watcher
+Version: 0.1.0
+Section: utils
+Priority: optional
+Architecture: amd64
+Depends: libayatana-appindicator3-1, libgtk-3-0
+Maintainer: Syrenny https://github.com/Syrenny
+Description: Tray app that blinks when RAM usage exceeds a configured limit

@@ -1,0 +1,5 @@
+bin/
+dist/
+.build/
+deb/*.deb
+deb/usr/local/bin/oom-watcher
