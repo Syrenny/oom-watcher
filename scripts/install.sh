@@ -23,9 +23,18 @@ fi
 
 curl -fsSL -o "${TMP_DEB}" "${PACKAGE_URL}"
 
-if sudo dpkg -i "${TMP_DEB}"; then
-	exit 0
+if ! sudo dpkg -i "${TMP_DEB}"; then
+	sudo apt-get update
+	sudo apt-get install -f -y
 fi
 
-sudo apt-get update
-sudo apt-get install -f -y
+if command -v pkill >/dev/null 2>&1; then
+	pkill -x oom-watcher 2>/dev/null || true
+fi
+
+if [ -n "${DISPLAY:-}" ] || [ -n "${WAYLAND_DISPLAY:-}" ]; then
+	nohup /usr/local/bin/oom-watcher >/tmp/oom-watcher.log 2>&1 &
+	echo "oom-watcher started in the current desktop session"
+else
+	echo "oom-watcher installed; no desktop session detected, autostart will run it on next login"
+fi

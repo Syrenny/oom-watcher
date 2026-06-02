@@ -15,5 +15,5 @@ func main() {
 		log.Fatalf("config error: %s", err)
 	}
 
-	app.Run(*cfg)
+	app.Run(configPath, *cfg)
 }

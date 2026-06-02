@@ -8,7 +8,7 @@ import (
 	"github.com/getlantern/systray"
 )
 
-func Run(cfg config.Config) {
+func Run(configPath string, cfg config.Config) {
 	ctx, cancel := context.WithCancel(context.Background())
 
 	deps := service.ServicesDependencies{
@@ -17,6 +17,6 @@ func Run(cfg config.Config) {
 	}
 	services := service.NewServices(deps)
 
-	systrayApp := NewSystrayApp(ctx, cancel, cfg, services)
+	systrayApp := NewSystrayApp(ctx, cancel, configPath, cfg, services)
 	systray.Run(systrayApp.OnReady, systrayApp.OnExit)
 }

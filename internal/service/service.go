@@ -11,6 +11,7 @@ type Gui interface {
 	UpdateStatus(statusItem *systray.MenuItem) (Snapshot, error)
 	ThresholdTitle() string
 	Tooltip(snapshot Snapshot) string
+	SetConfig(cfg config.Config)
 	ShowErr(err error)
 }
 

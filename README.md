@@ -1,14 +1,16 @@
 # oom-watcher
 
-Minimal Ubuntu tray app that watches RAM usage and blinks in the top bar when memory usage crosses a configured threshold.
+Minimal Ubuntu tray app that shows RAM usage as a percentage in the top bar and blinks when memory usage crosses a configured threshold.
 
 ## Features
 
-- tray icon in the top panel
+- RAM usage percentage in the top panel
 - periodic polling of `/proc/meminfo`
-- blinking alert icon when used RAM exceeds the configured limit
+- blinking percentage text when used RAM exceeds the configured limit
 - tooltip and menu item with current usage
+- automatic config reload after editing `/etc/oom-watcher/config.yaml`
 - autostart via XDG desktop entry
+- immediate start after install when a desktop session is already running
 - `.deb` package build
 
 ## Install
@@ -20,6 +22,7 @@ curl -fsSL https://github.com/Syrenny/oom-watcher/releases/latest/download/insta
 ```
 
 The package installs config to `/etc/oom-watcher/config.yaml`.
+If the installer is run inside an active desktop session, `oom-watcher` is started immediately after installation. Config changes are applied automatically without relogin or manual restart.
 
 ## Config
 
