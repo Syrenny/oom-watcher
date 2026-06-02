@@ -5,6 +5,7 @@ DEB_DIR := deb
 DEB_OUTPUT := $(DEB_DIR)/$(PACKAGE_NAME)_$(VERSION)_amd64.deb
 RELEASE_DIR := dist
 RELEASE_ASSET := $(RELEASE_DIR)/$(PACKAGE_NAME)_amd64.deb
+RELEASE_INSTALLER := $(RELEASE_DIR)/install.sh
 BIN_DIR := bin
 BINARY := $(BIN_DIR)/$(PACKAGE_NAME)
 BUILD_DIR := .build
@@ -28,14 +29,18 @@ build: fmt lint ## Build binary
 ##@ Debian package
 deb: build ## Build versioned .deb package
 	rm -rf $(DEB_STAGE_DIR)
-	mkdir -p $(BUILD_DIR)
-	cp -a $(DEB_DIR) $(DEB_STAGE_DIR)
+	mkdir -p $(DEB_STAGE_DIR)
+	cp -a $(DEB_DIR)/DEBIAN $(DEB_STAGE_DIR)/
+	cp -a $(DEB_DIR)/etc $(DEB_STAGE_DIR)/
+	mkdir -p $(DEB_STAGE_DIR)/usr/local/bin
+	if [ -d "$(DEB_DIR)/usr" ]; then cp -a $(DEB_DIR)/usr/. $(DEB_STAGE_DIR)/usr/; fi
 	chmod 755 $(DEB_STAGE_DIR)/DEBIAN/postinst $(DEB_STAGE_DIR)/DEBIAN/postrm
 	find $(DEB_STAGE_DIR)/etc -type d -exec chmod 755 {} +
 	find $(DEB_STAGE_DIR)/etc -type f -exec chmod 644 {} +
 	find $(DEB_STAGE_DIR)/usr -type d -exec chmod 755 {} +
 	find $(DEB_STAGE_DIR)/usr -type f -exec chmod 755 {} +
 	sed -i "s/^Version:.*/Version: $(VERSION)/" $(DEB_STAGE_DIR)/DEBIAN/control
+	rm -f $(DEB_STAGE_DIR)/usr/local/bin/.gitkeep
 	rm -f $(DEB_STAGE_DIR)/usr/local/bin/$(PACKAGE_NAME)
 	cp $(BINARY) $(DEB_STAGE_DIR)/usr/local/bin/
 	dpkg-deb --root-owner-group --build $(DEB_STAGE_DIR) $(DEB_OUTPUT)
@@ -44,7 +49,10 @@ deb: build ## Build versioned .deb package
 release-deb: deb ## Build stable release asset for GitHub Releases
 	mkdir -p $(RELEASE_DIR)
 	cp $(DEB_OUTPUT) $(RELEASE_ASSET)
+	cp scripts/install.sh $(RELEASE_INSTALLER)
+	chmod 755 $(RELEASE_INSTALLER)
 	@echo "Built release asset: $(RELEASE_ASSET)"
+	@echo "Built installer: $(RELEASE_INSTALLER)"
 
 ##@ Lint & fmt
 lint: ## Run golangci-lint

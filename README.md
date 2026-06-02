@@ -16,8 +16,7 @@ Minimal Ubuntu tray app that watches RAM usage and blinks in the top bar when me
 Install the latest GitHub Release directly:
 
 ```bash
-curl -L -o /tmp/oom-watcher_amd64.deb https://github.com/Syrenny/oom-watcher/releases/latest/download/oom-watcher_amd64.deb
-sudo dpkg -i /tmp/oom-watcher_amd64.deb
+curl -fsSL https://github.com/Syrenny/oom-watcher/releases/latest/download/install.sh | bash
 ```
 
 The package installs config to `/etc/oom-watcher/config.yaml`.
