@@ -1,36 +1,114 @@
 package app
 
-import (
-	"bytes"
-	"image"
-	"image/color"
-	"image/png"
-)
+/*
+#cgo pkg-config: pangocairo
 
-const (
-	panelIconHeight = 22
-	panelIconPadX   = 3
-	panelIconPadY   = 3
-	segmentWidth    = 6
-	segmentHeight   = 12
-	segmentThick    = 2
-	charGap         = 2
-	percentWidth    = 8
-)
+#include <stdlib.h>
+#include <string.h>
+#include <cairo.h>
+#include <pango/pangocairo.h>
 
-var segmentMap = map[rune][7]bool{
-	'0': {true, true, true, true, true, true, false},
-	'1': {false, true, true, false, false, false, false},
-	'2': {true, true, false, true, true, false, true},
-	'3': {true, true, true, true, false, false, true},
-	'4': {false, true, true, false, false, true, true},
-	'5': {true, false, true, true, false, true, true},
-	'6': {true, false, true, true, true, true, true},
-	'7': {true, true, true, false, false, false, false},
-	'8': {true, true, true, true, true, true, true},
-	'9': {true, true, true, true, false, true, true},
-	'-': {false, false, false, false, false, false, true},
+typedef struct {
+	unsigned char *data;
+	size_t len;
+	size_t cap;
+} png_buffer_t;
+
+static cairo_status_t write_png_chunk(void *closure, const unsigned char *data, unsigned int length) {
+	png_buffer_t *buf = (png_buffer_t *)closure;
+	size_t needed = buf->len + length;
+	if (needed > buf->cap) {
+		size_t new_cap = buf->cap == 0 ? needed : buf->cap * 2;
+		if (new_cap < needed) {
+			new_cap = needed;
+		}
+		unsigned char *new_data = (unsigned char *)realloc(buf->data, new_cap);
+		if (new_data == NULL) {
+			return CAIRO_STATUS_NO_MEMORY;
+		}
+		buf->data = new_data;
+		buf->cap = new_cap;
+	}
+	memcpy(buf->data + buf->len, data, length);
+	buf->len += length;
+	return CAIRO_STATUS_SUCCESS;
 }
+
+static int render_text_png(const char *text, int visible, unsigned char **out_data, int *out_len, char **out_err) {
+	const int pad_x = 3;
+	const int pad_y = 2;
+	const char *font_desc_text = "Ubuntu Sans 11";
+
+	cairo_surface_t *measure_surface = cairo_image_surface_create(CAIRO_FORMAT_ARGB32, 1, 1);
+	cairo_t *measure_cr = cairo_create(measure_surface);
+	PangoLayout *measure_layout = pango_cairo_create_layout(measure_cr);
+	PangoFontDescription *font_desc = pango_font_description_from_string(font_desc_text);
+	pango_layout_set_font_description(measure_layout, font_desc);
+	pango_layout_set_text(measure_layout, text, -1);
+
+	int text_w = 0;
+	int text_h = 0;
+	pango_layout_get_pixel_size(measure_layout, &text_w, &text_h);
+
+	g_object_unref(measure_layout);
+	cairo_destroy(measure_cr);
+	cairo_surface_destroy(measure_surface);
+
+	int width = text_w + pad_x * 2;
+	int height = text_h + pad_y * 2;
+	if (width < 1) {
+		width = 1;
+	}
+	if (height < 1) {
+		height = 1;
+	}
+
+	cairo_surface_t *surface = cairo_image_surface_create(CAIRO_FORMAT_ARGB32, width, height);
+	if (cairo_surface_status(surface) != CAIRO_STATUS_SUCCESS) {
+		pango_font_description_free(font_desc);
+		*out_err = strdup("failed to create cairo surface");
+		return 1;
+	}
+
+	cairo_t *cr = cairo_create(surface);
+	cairo_set_operator(cr, CAIRO_OPERATOR_SOURCE);
+	cairo_set_source_rgba(cr, 0, 0, 0, 0);
+	cairo_paint(cr);
+
+	if (visible) {
+		PangoLayout *layout = pango_cairo_create_layout(cr);
+		pango_layout_set_font_description(layout, font_desc);
+		pango_layout_set_text(layout, text, -1);
+		cairo_move_to(cr, pad_x, pad_y);
+		cairo_set_source_rgba(cr, 0.96, 0.97, 0.98, 1.0);
+		pango_cairo_show_layout(cr, layout);
+		g_object_unref(layout);
+	}
+
+	pango_font_description_free(font_desc);
+
+	png_buffer_t buf = {0};
+	cairo_status_t status = cairo_surface_write_to_png_stream(surface, write_png_chunk, &buf);
+	cairo_destroy(cr);
+	cairo_surface_destroy(surface);
+
+	if (status != CAIRO_STATUS_SUCCESS) {
+		free(buf.data);
+		*out_err = strdup(cairo_status_to_string(status));
+		return 1;
+	}
+
+	*out_data = buf.data;
+	*out_len = (int)buf.len;
+	return 0;
+}
+*/
+import "C"
+
+import (
+	"fmt"
+	"unsafe"
+)
 
 type panelIcons struct {
 	Visible []byte
@@ -55,100 +133,22 @@ func renderPanelIcons(text string) (panelIcons, error) {
 }
 
 func renderPanelIcon(text string, visible bool) ([]byte, error) {
-	width := panelIconWidth(text)
-	img := image.NewNRGBA(image.Rect(0, 0, width, panelIconHeight))
+	visibleFlag := C.int(0)
 	if visible {
-		drawPanelText(img, text, color.NRGBA{R: 245, G: 247, B: 250, A: 255})
-	}
-	return encodePNG(img)
-}
-
-func panelIconWidth(text string) int {
-	width := panelIconPadX * 2
-	for _, ch := range text {
-		width += glyphWidth(ch)
-	}
-	if len(text) > 1 {
-		width += (len(text) - 1) * charGap
-	}
-	return width
-}
-
-func drawPanelText(img *image.NRGBA, text string, c color.NRGBA) {
-	x := panelIconPadX
-	for _, ch := range text {
-		drawGlyph(img, x, panelIconPadY, ch, c)
-		x += glyphWidth(ch) + charGap
-	}
-}
-
-func drawGlyph(img *image.NRGBA, x, y int, ch rune, c color.NRGBA) {
-	switch ch {
-	case '%':
-		drawPercent(img, x, y, c)
-	default:
-		drawSevenSegment(img, x, y, ch, c)
-	}
-}
-
-func drawSevenSegment(img *image.NRGBA, x, y int, ch rune, c color.NRGBA) {
-	segments, ok := segmentMap[ch]
-	if !ok {
-		segments = segmentMap['-']
+		visibleFlag = 1
 	}
 
-	if segments[0] {
-		fillRect(img, x+1, y, x+1+segmentWidth, y+segmentThick, c)
-	}
-	if segments[1] {
-		fillRect(img, x+segmentWidth, y+1, x+segmentWidth+segmentThick, y+1+segmentHeight/2, c)
-	}
-	if segments[2] {
-		fillRect(img, x+segmentWidth, y+segmentHeight/2+1, x+segmentWidth+segmentThick, y+segmentHeight+1, c)
-	}
-	if segments[3] {
-		fillRect(img, x+1, y+segmentHeight, x+1+segmentWidth, y+segmentHeight+segmentThick, c)
-	}
-	if segments[4] {
-		fillRect(img, x, y+segmentHeight/2+1, x+segmentThick, y+segmentHeight+1, c)
-	}
-	if segments[5] {
-		fillRect(img, x, y+1, x+segmentThick, y+1+segmentHeight/2, c)
-	}
-	if segments[6] {
-		fillRect(img, x+1, y+segmentHeight/2, x+1+segmentWidth, y+segmentHeight/2+segmentThick, c)
-	}
-}
+	cText := C.CString(text)
+	defer C.free(unsafe.Pointer(cText))
 
-func drawPercent(img *image.NRGBA, x, y int, c color.NRGBA) {
-	fillRect(img, x, y+1, x+2, y+3, c)
-	fillRect(img, x+percentWidth-2, y+segmentHeight-1, x+percentWidth, y+segmentHeight+1, c)
-	for offset := 0; offset < 6; offset++ {
-		fillRect(img, x+2+offset, y+segmentHeight-1-offset, x+3+offset, y+segmentHeight-offset, c)
+	var cData *C.uchar
+	var cLen C.int
+	var cErr *C.char
+	if C.render_text_png(cText, visibleFlag, &cData, &cLen, &cErr) != 0 {
+		defer C.free(unsafe.Pointer(cErr))
+		return nil, fmt.Errorf("render panel icon: %s", C.GoString(cErr))
 	}
-}
+	defer C.free(unsafe.Pointer(cData))
 
-func glyphWidth(ch rune) int {
-	if ch == '%' {
-		return percentWidth
-	}
-
-	return segmentWidth + segmentThick
-}
-
-func fillRect(img *image.NRGBA, x0, y0, x1, y1 int, c color.NRGBA) {
-	for y := y0; y < y1; y++ {
-		for x := x0; x < x1; x++ {
-			img.SetNRGBA(x, y, c)
-		}
-	}
-}
-
-func encodePNG(img image.Image) ([]byte, error) {
-	var buf bytes.Buffer
-	if err := png.Encode(&buf, img); err != nil {
-		return nil, err
-	}
-
-	return buf.Bytes(), nil
+	return C.GoBytes(unsafe.Pointer(cData), cLen), nil
 }
