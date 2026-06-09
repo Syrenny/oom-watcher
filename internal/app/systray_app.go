@@ -23,31 +23,27 @@ type SystrayAppImpl struct {
 	configPath string
 	cfg        config.Config
 	services   *service.Services
-	icons      trayIcons
 }
 
 func NewSystrayApp(ctx context.Context, cancel context.CancelFunc, configPath string, cfg config.Config, services *service.Services) *SystrayAppImpl {
-	icons, err := newTrayIcons()
-	if err != nil {
-		log.Printf("failed to prepare tray icons: %v", err)
-	}
-
 	return &SystrayAppImpl{
 		ctx:        ctx,
 		cancel:     cancel,
 		configPath: configPath,
 		cfg:        cfg,
 		services:   services,
-		icons:      icons,
 	}
 }
 
 func (s *SystrayAppImpl) OnReady() {
-	if len(s.icons.Blank) > 0 {
-		systray.SetIcon(s.icons.Blank)
+	initialIcons, err := renderPanelIcons("--%")
+	if err != nil {
+		log.Printf("failed to render initial panel icon: %v", err)
+	} else {
+		systray.SetIcon(initialIcons.Visible)
 	}
 	systray.SetTooltip("OOM watcher is starting")
-	systray.SetTitle("--%")
+	systray.SetTitle("")
 
 	statusItem := systray.AddMenuItem("Checking memory...", "Current memory usage")
 	statusItem.Disable()
@@ -130,12 +126,18 @@ func (s *SystrayAppImpl) run(statusItem, thresholdItem *systray.MenuItem) {
 
 func (s *SystrayAppImpl) applyPanelState(snapshot service.Snapshot, visible bool) {
 	systray.SetTooltip(s.services.Gui.Tooltip(snapshot))
-	if snapshot.Alert && !visible {
-		systray.SetTitle("")
+	icons, err := renderPanelIcons(snapshot.PanelTitle)
+	if err != nil {
+		log.Printf("failed to render panel icon: %v", err)
 		return
 	}
 
-	systray.SetTitle(snapshot.PanelTitle)
+	if snapshot.Alert && !visible {
+		systray.SetIcon(icons.Blank)
+		return
+	}
+
+	systray.SetIcon(icons.Visible)
 }
 
 func (s *SystrayAppImpl) configModTime() time.Time {
